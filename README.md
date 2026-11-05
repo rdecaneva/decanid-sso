@@ -6,12 +6,11 @@ Authentik at https://sso.decaneva.cloud/, based on the [official Docker Compose 
 docker compose up -d
 ```
 
-Public certificate issuance is pending as of November 5, 2026: DNS resolves to `172.91.65.235`, while this host reports public IP `172.113.63.197`; Let’s Encrypt timed out reaching TCP port 80. Confirm the public ingress IP, correct DNS if needed, and forward TCP ports 80/443 to `192.168.1.102`. The proxy currently serves a temporary self-signed certificate for SSO.
+HTTPS is active with a trusted Let’s Encrypt certificate, issued November 5, 2026 and initially expiring February 3, 2027. The shared proxy checks renewal hourly and reloads certificates automatically. DNS points to `172.113.63.197`; TCP ports 80/443 reach the proxy on `192.168.1.102`.
 
-After fixing public connectivity, trigger issuance and validate trusted HTTPS:
+Validate trusted HTTPS across all proxy routes:
 
 ```sh
-docker compose -f ../decan-cloud-nginx/compose.yaml restart certificates
 python3 ../decan-cloud-nginx/scripts/check-routes.py --trusted
 ```
 
