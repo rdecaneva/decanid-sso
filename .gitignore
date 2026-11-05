@@ -1,3 +1,11 @@
 .env
 .env.*
 !.env.example
+
+.taste-skill/before/
+.taste-skill/after/
+
+.taste-skill/enrollment/
+test-results/
+
+.taste-skill/email/

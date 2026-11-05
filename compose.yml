@@ -46,7 +46,10 @@ services:
     shm_size: 512mb
     volumes:
     - data:/data
+    - ./branding:/web/dist/custom:ro
     - custom-templates:/templates
+    - ./templates/email:/templates/email:ro
+    - ./branding/decanid-email-wordmark.png:/web/dist/assets/icons/icon_left_brand.png:ro
   worker:
     command: worker
     depends_on:
@@ -68,6 +71,8 @@ services:
     - data:/data
     - certs:/certs
     - custom-templates:/templates
+    - ./templates/email:/templates/email:ro
+    - ./branding/decanid-email-wordmark.png:/web/dist/assets/icons/icon_left_brand.png:ro
 volumes:
   database:
     driver: local

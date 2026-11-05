@@ -1,0 +1,135 @@
+/* decanID — rook, ivory, forest. Native Authentik flows and controls are preserved. */
+:root, :host {
+  --pf-global--primary-color--100: #28533b;
+  --pf-global--primary-color--200: #1e402e;
+  --pf-global--active-color--100: #28533b;
+  --pf-global--link--Color: #28533b;
+  --pf-global--link--Color--hover: #1e402e;
+  --pf-global--FontFamily--sans-serif: "Arial", "Helvetica Neue", sans-serif;
+}
+.pf-c-login {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 76px 28px 40px;
+  background: #f6f4ed;
+  color: #202823;
+}
+.pf-c-login__header { display: none; }
+.pf-c-login .pf-c-login__main {
+  width: min(400px, 100%);
+  max-width: none;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  z-index: 1;
+}
+.pf-c-login__main-header.pf-c-brand { padding: 0 0 62px; }
+.pf-c-login__main-header .branding-logo {
+  width: 244px;
+  height: auto;
+  max-height: none;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+.pf-c-login__main-header:not(.pf-c-brand) { padding: 0 0 26px; }
+.pf-c-login__main-header:has(.pf-c-title:empty) { display: none; }
+.pf-c-login__main-header .pf-c-title {
+  font: 42px/1.12 Georgia, "Times New Roman", serif;
+  letter-spacing: -1.3px;
+  color: #202823;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.pf-c-login__main-body { padding: 0; }
+.pf-c-login__main-footer { padding: 24px 0 0; }
+.pf-c-login__footer {
+  width: min(400px, 100%);
+  margin: 38px 0 0;
+  padding: 0;
+  z-index: 1;
+  color: #59645b;
+}
+.pf-c-login__footer a { color: #59645b; }
+.pf-c-login ak-locale-select { position: absolute; top: 28px; right: 32px; color: #39483d; }
+:host(ak-locale-select) { --pf-global--Color--light-100: #39483d; }
+.pf-c-form { --pf-c-form--GridGap: 24px; }
+.pf-c-form__label { font-size: 14px; font-weight: 500; color: #202823; padding-bottom: 8px; }
+.pf-c-form-control {
+  min-height: 50px;
+  padding: 12px 14px;
+  color: #202823;
+  background: #fffefa;
+  border: 1px solid #a5afa4;
+  border-radius: 5px;
+  box-shadow: none;
+  font-size: 16px;
+  --pf-c-form-control--BorderBottomColor: #a5afa4;
+}
+.pf-c-form-control:focus {
+  outline: 2px solid #28533b;
+  outline-offset: 3px;
+  border-color: #28533b;
+}
+.pf-c-button.pf-m-primary {
+  min-height: 50px;
+  padding: 12px 20px;
+  background: #28533b;
+  color: #fffefa;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: none;
+}
+.pf-c-button.pf-m-primary:hover { background: #1e402e; }
+.pf-c-button:focus-visible { outline: 2px solid #28533b; outline-offset: 4px; }
+.pf-c-button.pf-m-primary:disabled { background: #758379; color: #ffffff; }
+.pf-c-button.pf-m-link, a { --pf-global--link--Color: #28533b; }
+
+/* Authentik's stacked layout has background grid items; replace those locally. */
+.pf-c-login[data-layout] {
+  display: flex;
+  height: auto;
+  gap: 0;
+  isolation: isolate;
+  --ak-c-login__main--BoxShadow: none;
+  --ak-c-loading-overlay--BackgroundColor: transparent;
+  --ak-global--BackgroundContrastFilter: none;
+}
+.pf-c-login[data-layout]::before,
+.pf-c-login[data-layout]::after { content: none; display: none; }
+.pf-c-login[data-layout] .pf-c-login__main,
+.pf-c-login[data-layout] .pf-c-login__footer {
+  align-self: center;
+  flex: 0 0 auto;
+  filter: none;
+}
+.pf-c-login[data-layout] .pf-c-login__main { box-shadow: none !important; }
+.pf-c-login__main-header.pf-c-brand { justify-content: flex-start; }
+.pf-c-login[data-layout] ak-locale-select {
+  position: absolute !important;
+  inset: 24px 28px auto auto !important;
+  filter: none !important;
+  z-index: 2;
+}
+@media (max-width: 1000px) {
+  .pf-c-login[data-layout] { align-items: center; padding: 76px 28px 40px; }
+  .pf-c-login[data-layout]::before { display: none; }
+  .pf-c-login[data-layout] .pf-c-login__main,
+  .pf-c-login[data-layout] .pf-c-login__footer { align-self: center; width: min(400px, 100%); }
+}
+@media (max-width: 680px) {
+  .pf-c-login__main-header.pf-c-brand { padding-bottom: 48px; }
+  .pf-c-login__main-header .branding-logo { width: 222px; }
+  .pf-c-login__main-header .pf-c-title { font-size: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

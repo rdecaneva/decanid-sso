@@ -1,0 +1,5 @@
+decanID email test
+
+Email delivery is working. Your account messages will arrive from decanID.
+
+Manage your account: https://sso.decaneva.cloud/
