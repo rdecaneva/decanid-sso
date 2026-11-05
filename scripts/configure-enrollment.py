@@ -2,7 +2,7 @@
 Run: docker compose exec -T server ak shell < scripts/configure-enrollment.py
 """
 from django.db import transaction
-from authentik.core.models import Group
+from authentik.core.models import Group, User
 from authentik.flows.models import Flow, FlowStageBinding
 from authentik.policies.models import PolicyBinding
 from authentik.policies.expression.models import ExpressionPolicy
@@ -41,7 +41,7 @@ with transaction.atomic():
     assert not group.is_superuser, "Enrollment group must not grant administration"
     write, _ = UserWriteStage.objects.update_or_create(name="decanid-enrollment-create", defaults={
         "user_creation_mode": "always_create", "create_users_as_inactive": True,
-        "create_users_group": group, "user_type": "external", "user_path_template": "users/decanid",
+        "create_users_group": group, "user_type": "internal", "user_path_template": "users/decanid",
     })
     email, _ = EmailStage.objects.update_or_create(name="decanid-enrollment-verify-email", defaults={
         "use_global_settings": True, "activate_user_on_success": True,
@@ -65,4 +65,8 @@ return True''',
             })
             PolicyBinding.objects.update_or_create(target=binding, order=0, defaults={"policy": verified, "enabled": True})
     IdentificationStage.objects.filter(name="default-authentication-identification").update(enrollment_flow=flow)
+    # Portal access is a user type, not an administrator permission. Repair only
+    # accounts created by this enrollment flow; preserve IDs, passwords and groups.
+    enrolled_ids = list(User.objects.filter(type="external", path="users/decanid", groups=group).values_list("pk", flat=True).distinct())
+    User.objects.filter(pk__in=enrolled_ids).update(type="internal")
 print("Configured decanID enrollment with inactive accounts, mandatory email verification, and no administrator grants.")

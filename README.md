@@ -58,9 +58,9 @@ ssh -L 9001:127.0.0.1:9001 <user>@<docker-host>
 
 Users can create an account at the enrollment link on the SSO login page, directly at https://sso.decaneva.cloud/if/flow/decanid-enrollment/, or using **Create decanID** in Imperium.
 
-The `decanid-enrollment` flow collects a unique username, name, email, password, and password confirmation. Passwords require at least 12 characters. The user-write stage creates an **inactive external user** in `users/decanid`, belonging only to `decanid-users`. The mandatory email stage sends a verification link valid for 30 minutes. Opening that link and pressing **Continue** activates the account, records `email_verified`, and completes sign-in. The confirmation prevents mail-link previews from completing enrollment automatically. Enrollment email resends are limited to five attempts per ten minutes for the stage's recovery limit.
+The `decanid-enrollment` flow collects a unique username, name, email, password, and password confirmation. Passwords require at least 12 characters. The user-write stage creates an **inactive regular internal user** in `users/decanid`, belonging only to `decanid-users`. The mandatory email stage sends a verification link valid for 30 minutes. Opening that link and pressing **Continue** activates the account, records `email_verified`, and completes sign-in. The confirmation prevents mail-link previews from completing enrollment automatically. Enrollment email resends are limited to five attempts per ten minutes for the stage's recovery limit.
 
-New accounts do not receive Authentik administration or the `imperium-admin` group. Existing accounts and passwords are preserved. Signed-in users should sign out before opening the enrollment flow to create a different account.
+Internal is Authentik’s portal-enabled user type: it provides the application dashboard and personal settings, not administrator privileges. New accounts do not receive Authentik administration or the `imperium-admin` group. Reapplying the enrollment script also corrects the type of accounts previously created by this flow, without replacing their IDs, passwords, or group memberships. Existing accounts and passwords are preserved. Signed-in users should sign out before opening the enrollment flow to create a different account.
 
 From Imperium, registration preserves the OIDC authorization request, PKCE verifier, state, nonce, and intended return path. Its browser-bound pending login lasts one hour to allow time for email verification; ordinary sign-in retains its five-minute limit. Account verification returns through Imperium's normal callback. Complete the email link in the same browser that started Imperium registration; if you verify on another device, return to Imperium and sign in normally with the new account.
 
@@ -83,6 +83,8 @@ Existing operators can use their own administrator account. The original bootstr
 | Post-logout redirect | `https://imperium.decaneva.cloud/` |
 | Scopes | `openid profile email offline_access` |
 | App administrator group | `imperium-admin` |
+
+Imperium’s provider uses `default-invalidation-flow` for logout, which clears the decanID SSO session as well as Imperium’s local session. The application-only `default-provider-invalidation-flow` has no logout stage and leaves the SSO session active; do not use it for this provider.
 
 The public OAuth2 provider uses authorization code with PKCE S256, RSA-signed tokens, strict callback/logout URL matching, five-minute access tokens, and refresh tokens valid for up to ten hours. Imperium discovers authorization, token, JWKS, and logout endpoints and validates signatures, issuer, audience, subject, expiry, and initial nonce.
 
@@ -178,3 +180,11 @@ BASE_URL=http://127.0.0.1:5173 node tests/auth-browser.mjs
 Registration should reject short passwords, keep accounts inactive until the email link is followed, record `email_verified`, return Imperium signups through its OIDC callback, and leave new users without administrator privileges. Use a separate test account and remove only that account after verification; do not repurpose an operator account.
 
 The live enrollment check passed email verification, ordinary-user authorization, and the Imperium callback; its temporary test account was removed afterward. The updated branded Gmail test was confirmed delivered.
+
+### Session and portal regression checks
+
+Self-registered decanID accounts use Authentik's ordinary `internal` user type so they can open the application dashboard and personal settings. This does not assign superuser rights, administrative roles, or the `imperium-admin` group. Accounts created by the earlier external-user enrollment configuration are repaired in place by `scripts/configure-enrollment.py`.
+
+Imperium's logout clears the local application session and the Authentik SSO session. This permits a subsequent **Create decanID** action; enrollment intentionally still requires an unauthenticated session. A signed-in user who opens an enrollment URL directly should sign out first.
+
+`../imperium/tests/sso-session-browser.mjs` checks portal access, denied administrator APIs, full SSO logout, and registration after logout. Supply a dedicated regular test account through `SSO_TEST_USERNAME` and `SSO_TEST_PASSWORD` in the environment, then run the script from the Imperium directory. It does not create users or games. A live run passed all checks; its separately provisioned temporary test account was removed.

@@ -18,7 +18,7 @@ with transaction.atomic():
             "client_type": "public",
             "client_secret": "",
             "authorization_flow": Flow.objects.get(slug="default-provider-authorization-implicit-consent"),
-            "invalidation_flow": Flow.objects.get(slug="default-provider-invalidation-flow"),
+            "invalidation_flow": Flow.objects.get(slug="default-invalidation-flow"),
             "grant_types": ["authorization_code", "refresh_token"],
             "_redirect_uris": [
                 {"matching_mode": "strict", "url": "https://imperium.decaneva.cloud/auth/callback", "redirect_uri_type": "authorization"},
