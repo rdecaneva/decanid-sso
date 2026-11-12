@@ -14,6 +14,6 @@ The skill’s standalone inspector requires Node 22; the host has Node 18, so Pl
 
 Reapply with `docker compose exec -T server ak shell < scripts/configure-branding.py`. The first application backs up the prior settings to the persistent `/data/decanid-branding-backup.json`. Asset changes are served directly from the read-only Compose mount; CSS changes need the reapply command.
 
-Login loading overlays use a transparent background. The native spinner and pointer blocking remain active during requests.
+Login loading overlays use a transparent background. The native spinner and pointer blocking remain active during requests. The built-in “Powered by authentik” attribution is hidden; configured footer links remain available.
 
 Email branding uses the same ivory/charcoal/forest palette and wordmark. The PNG wordmark is embedded inline as `cid:logo`; custom templates live in `templates/email`. Both server and worker mount the templates and PNG read-only. These templates cover verification, password reset, the transport test, and the shared base inherited by invitation/notification messages. Preview images are under `.taste-skill/email`.

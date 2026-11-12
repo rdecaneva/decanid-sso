@@ -1,7 +1,7 @@
 """Run inside Authentik: docker compose exec -T server ak shell < scripts/configure-imperium.py."""
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from django.db import transaction
-from authentik.core.models import Application, Group, User
+from authentik.core.models import Application, Group
 from authentik.crypto.models import CertificateKeyPair
 from authentik.flows.models import Flow
 from authentik.providers.oauth2.models import OAuth2Provider, ScopeMapping
@@ -14,13 +14,15 @@ with transaction.atomic():
     provider, _ = OAuth2Provider.objects.update_or_create(
         client_id="imperium",
         defaults={
-            "name": "Imperium",
+            "name": "Orbit",
             "client_type": "public",
             "client_secret": "",
             "authorization_flow": Flow.objects.get(slug="default-provider-authorization-implicit-consent"),
             "invalidation_flow": Flow.objects.get(slug="default-invalidation-flow"),
             "grant_types": ["authorization_code", "refresh_token"],
             "_redirect_uris": [
+                {"matching_mode": "strict", "url": "https://orbit.decaneva.cloud/auth/callback", "redirect_uri_type": "authorization"},
+                {"matching_mode": "strict", "url": "https://orbit.decaneva.cloud/", "redirect_uri_type": "logout"},
                 {"matching_mode": "strict", "url": "https://imperium.decaneva.cloud/auth/callback", "redirect_uri_type": "authorization"},
                 {"matching_mode": "strict", "url": "https://imperium.decaneva.cloud/", "redirect_uri_type": "logout"},
             ],
@@ -34,9 +36,9 @@ with transaction.atomic():
     scopes = [ScopeMapping.objects.get(managed=f"goauthentik.io/providers/oauth2/scope-{scope}")
               for scope in ["openid", "profile", "offline_access"]]
     groups_mapping, _ = ScopeMapping.objects.update_or_create(
-        name="Imperium groups", defaults={
+        name="decanID groups", defaults={
             "scope_name": "profile",
-            "expression": 'return {"groups": list(request.user.ak_groups.values_list("name", flat=True))}',
+            "expression": 'return {"groups": sorted(group.name for group in request.user.all_groups())}',
         },
     )
     verified_email, _ = ScopeMapping.objects.update_or_create(
@@ -47,9 +49,10 @@ with transaction.atomic():
     )
     provider.property_mappings.set([*scopes, groups_mapping, verified_email])
     Application.objects.update_or_create(slug="imperium", defaults={
-        "name": "Imperium", "provider": provider,
-        "meta_launch_url": "https://imperium.decaneva.cloud/",
+        "name": "Orbit", "provider": provider,
+        "meta_launch_url": "https://orbit.decaneva.cloud/",
     })
-    group, _ = Group.objects.get_or_create(name="imperium-admin", defaults={"is_superuser": False})
-    User.objects.get(username="akadmin").ak_groups.add(group)
-print("Configured Imperium public OIDC provider, strict callbacks, refresh scopes, and application administrator group.")
+    group, _ = Group.objects.get_or_create(name="orbit-admins", defaults={"is_superuser": False})
+    if group.is_superuser:
+        raise ValueError("Orbit administrators must not grant Authentik superuser rights")
+print("Configured Orbit public OIDC provider, strict callbacks, refresh scopes, and application administrator group.")

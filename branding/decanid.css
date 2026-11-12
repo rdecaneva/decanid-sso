@@ -58,6 +58,9 @@
   color: #59645b;
 }
 .pf-c-login__footer a { color: #59645b; }
+/* Authentik appends its attribution after any configured footer links. */
+ak-brand-links li[data-kind="text"]:last-child { display: none; }
+ak-brand-links:has(ul[data-count="1"]) { display: none; }
 .pf-c-login ak-locale-select { position: absolute; top: 28px; right: 32px; color: #39483d; }
 :host(ak-locale-select) { --pf-global--Color--light-100: #39483d; }
 .pf-c-form { --pf-c-form--GridGap: 24px; }

@@ -27,18 +27,20 @@ with transaction.atomic():
         field, _ = Prompt.objects.update_or_create(name="decanid-enrollment-"+key, defaults={
             "field_key": key, "label": label, "type": kind, "required": True,
             "placeholder": label, "order": order,
-            "sub_text": "Use at least 12 characters." if key == "password" else "",
+            "sub_text": "Use at least 8 characters." if key == "password" else "",
         })
         fields.append(field)
     prompt, _ = PromptStage.objects.get_or_create(name="decanid-enrollment-details")
     prompt.fields.set(fields)
     password, _ = PasswordPolicy.objects.update_or_create(name="decanid-enrollment-password", defaults={
-        "length_min": 12, "check_static_rules": True, "check_have_i_been_pwned": False,
-        "error_message": "Use a password with at least 12 characters.",
+        "length_min": 8, "check_static_rules": True, "check_have_i_been_pwned": False,
+        "error_message": "Use a password with at least 8 characters.",
     })
     prompt.validation_policies.set([password])
     group, _ = Group.objects.get_or_create(name="decanid-users", defaults={"is_superuser": False})
     assert not group.is_superuser, "Enrollment group must not grant administration"
+    app_users, _ = Group.objects.get_or_create(name="orbit-users", defaults={"is_superuser": False})
+    assert not app_users.is_superuser, "General app users must not grant administration"
     write, _ = UserWriteStage.objects.update_or_create(name="decanid-enrollment-create", defaults={
         "user_creation_mode": "always_create", "create_users_as_inactive": True,
         "create_users_group": group, "user_type": "internal", "user_path_template": "users/decanid",
@@ -59,6 +61,11 @@ with transaction.atomic():
 user = plan.context.get("pending_user") if plan else None
 if not user or not user.is_active:
     return False
+from authentik.core.models import Group
+group = Group.objects.get(name="orbit-users")
+if group.is_superuser:
+    return False
+user.groups.add(group)
 user.attributes["email_verified"] = True
 user.save(update_fields=["attributes"])
 return True''',

@@ -1,6 +1,6 @@
 # decanID
 
-Shared single sign-on at **https://sso.decaneva.cloud/**, powered by Authentik 2026.8.5 and PostgreSQL 16. Imperium uses decanID for account sign-in. Resend supplies SMTP delivery from **decanID <noreply@mail.decaneva.cloud>**.
+Shared single sign-on at **https://sso.decaneva.cloud/**, powered by Authentik 2026.8.5 and PostgreSQL 16. Orbit uses decanID for account sign-in. Resend supplies SMTP delivery from **decanID <noreply@mail.decaneva.cloud>**.
 
 ## Deployment
 
@@ -56,13 +56,13 @@ ssh -L 9001:127.0.0.1:9001 <user>@<docker-host>
 
 ## Accounts and self-registration
 
-Users can create an account at the enrollment link on the SSO login page, directly at https://sso.decaneva.cloud/if/flow/decanid-enrollment/, or using **Create decanID** in Imperium.
+Users can create an account at the enrollment link on the SSO login page, directly at https://sso.decaneva.cloud/if/flow/decanid-enrollment/, or using **Create decanID** in Orbit.
 
-The `decanid-enrollment` flow collects a unique username, name, email, password, and password confirmation. Passwords require at least 12 characters. The user-write stage creates an **inactive regular internal user** in `users/decanid`, belonging only to `decanid-users`. The mandatory email stage sends a verification link valid for 30 minutes. Opening that link and pressing **Continue** activates the account, records `email_verified`, and completes sign-in. The confirmation prevents mail-link previews from completing enrollment automatically. Enrollment email resends are limited to five attempts per ten minutes for the stage's recovery limit.
+The `decanid-enrollment` flow collects a unique username, name, email, password, and password confirmation. Passwords require at least 8 characters. The user-write stage creates an **inactive regular internal user** in `users/decanid`, belonging initially to `decanid-users`; successful email verification adds `orbit-users` for general Orbit access. The mandatory email stage sends a verification link valid for 30 minutes. Opening that link and pressing **Continue** activates the account, records `email_verified`, and completes sign-in. The confirmation prevents mail-link previews from completing enrollment automatically. Enrollment email resends are limited to five attempts per ten minutes for the stage's recovery limit.
 
-Internal is Authentik’s portal-enabled user type: it provides the application dashboard and personal settings, not administrator privileges. New accounts do not receive Authentik administration or the `imperium-admin` group. Reapplying the enrollment script also corrects the type of accounts previously created by this flow, without replacing their IDs, passwords, or group memberships. Existing accounts and passwords are preserved. Signed-in users should sign out before opening the enrollment flow to create a different account.
+Internal is Authentik’s portal-enabled user type: it provides the application dashboard and personal settings, not administrator privileges. New accounts do not receive Authentik administration or the `orbit-admins` group. Reapplying the enrollment script also corrects the type of accounts previously created by this flow, without replacing their IDs, passwords, or group memberships. Existing accounts and passwords are preserved. Signed-in users should sign out before opening the enrollment flow to create a different account.
 
-From Imperium, registration preserves the OIDC authorization request, PKCE verifier, state, nonce, and intended return path. Its browser-bound pending login lasts one hour to allow time for email verification; ordinary sign-in retains its five-minute limit. Account verification returns through Imperium's normal callback. Complete the email link in the same browser that started Imperium registration; if you verify on another device, return to Imperium and sign in normally with the new account.
+From Orbit, registration preserves the OIDC authorization request, PKCE verifier, state, nonce, and intended return path. Its browser-bound pending login lasts one hour to allow time for email verification; ordinary sign-in retains its five-minute limit. Account verification returns through Orbit's normal callback. Complete the email link in the same browser that started Orbit registration; if you verify on another device, return to Orbit and sign in normally with the new account.
 
 Reapply the idempotent enrollment configuration with:
 
@@ -72,25 +72,55 @@ docker compose exec -T server ak shell < scripts/configure-enrollment.py
 
 Existing operators can use their own administrator account. The original bootstrap account is `akadmin`; its initially generated password was saved in the Git-ignored `.env.initial-admin` file. That file does not track later password changes. Initialize an administrator before exposing a fresh installation publicly.
 
-## Imperium OIDC integration
+## Orbit OIDC integration
+
+### Shared and application groups
+
+Manage membership in **Directory → Groups** in Authentik. Only Orbit is currently connected to decanID; apps using local accounts need an OIDC integration before these groups apply there.
+
+| Group | Permission |
+| --- | --- |
+| `decanid-admins` | Shared administration for apps that recognize it; no Orbit privileges |
+| `orbit-admins` | Orbit administration and game hosting |
+| `orbit-users` | General Orbit access, without administration |
+| `decanid-users` | General decanID enrollment membership; does not independently grant app access |
+
+These groups do not grant Authentik administration. Only orbit-admins grants Orbit administration and game hosting. General access is granted by orbit-users; verified enrollment adds that group. The shared decanid-admins group grants no Orbit access or administration by itself. The old imperium-admins group was renamed in place, imperium-admin was removed, and decan0505 was explicitly added to orbit-admins. Subsequent provisioning preserves manual memberships. Existing games remain editable by their hosts after hosting permission is removed.
+
+```sh
+# Validate without saving database changes:
+docker compose exec -T -e DECANID_GROUPS_DRY_RUN=1 server ak shell < scripts/configure-app-groups.py
+# Apply to Orbit:
+docker compose exec -T server ak shell < scripts/configure-app-groups.py
+# Verify access, group claims, and enrollment using rolled-back test users:
+docker compose exec -T server ak shell < scripts/check-app-groups.py
+```
+
+The script backs up affected groups, memberships, bindings, mapping names, and the enrollment policy to a private `/data/decanid-imperium-groups-before-*.json` file. It binds the app access groups with **ANY** matching and installs the shared `decanID groups` profile mapping, including inherited memberships. It refuses applications with unrelated bindings so it cannot silently override another access policy.
+
+For another already-integrated OIDC app, run with `-e DECANID_APP_SLUG=<app-slug>`. This creates `<app-slug>-admin` and `<app-slug>-user`, binds those alongside `decanid-admins`, and attaches the shared mapping. Configure that app to recognize `decanid-admins` or `<app-slug>-admin` as its administrator role; assign general users explicitly. Only Orbit receives the initial membership migration and automatic verified-signup access.
+
+Membership changes take effect in newly issued tokens. Orbit access tokens last five minutes; sign in again to apply changes immediately. Removing an access group does not synchronously revoke already-issued application sessions. App administration here covers SSO settings, not access to another person's game library.
+
+### Provider configuration
 
 | Setting | Value |
 | --- | --- |
-| Application / client ID | `imperium` |
+| Application slug / client ID (compatibility) | `imperium` |
 | Issuer, including trailing slash | `https://sso.decaneva.cloud/application/o/imperium/` |
 | Discovery | `https://sso.decaneva.cloud/application/o/imperium/.well-known/openid-configuration` |
-| Callback | `https://imperium.decaneva.cloud/auth/callback` |
-| Post-logout redirect | `https://imperium.decaneva.cloud/` |
+| Callback | `https://orbit.decaneva.cloud/auth/callback` |
+| Post-logout redirect | `https://orbit.decaneva.cloud/` |
 | Scopes | `openid profile email offline_access` |
-| App administrator group | `imperium-admin` |
+| App administrator group | `orbit-admins` |
 
-Imperium’s provider uses `default-invalidation-flow` for logout, which clears the decanID SSO session as well as Imperium’s local session. The application-only `default-provider-invalidation-flow` has no logout stage and leaves the SSO session active; do not use it for this provider.
+Orbit’s provider uses `default-invalidation-flow` for logout, which clears the decanID SSO session as well as Orbit’s local session. The application-only `default-provider-invalidation-flow` has no logout stage and leaves the SSO session active; do not use it for this provider.
 
-The public OAuth2 provider uses authorization code with PKCE S256, RSA-signed tokens, strict callback/logout URL matching, five-minute access tokens, and refresh tokens valid for up to ten hours. Imperium discovers authorization, token, JWKS, and logout endpoints and validates signatures, issuer, audience, subject, expiry, and initial nonce.
+The public OAuth2 provider uses authorization code with PKCE S256, RSA-signed tokens, strict callback/logout URL matching, five-minute access tokens, and refresh tokens valid for up to ten hours. Orbit discovers authorization, token, JWKS, and logout endpoints and validates signatures, issuer, audience, subject, expiry, and initial nonce.
 
-Tokens are stored on Imperium's server; its browser cookie is opaque, HttpOnly, SameSite=Lax, and Secure over HTTPS. Signed group claims grant application administration. The email scope reports `email_verified` only when the account has the explicit verified-email attribute set by enrollment. The existing Authentik `akadmin` account is assigned to `imperium-admin`; ordinary users must be granted that group explicitly if needed. Granting this group does not grant Authentik administration.
+Tokens are stored on Orbit's server; its browser cookie is opaque, HttpOnly, SameSite=Lax, and Secure over HTTPS. Signed group claims grant application administration. The email scope reports `email_verified` only when the account has the explicit verified-email attribute set by enrollment. Orbit hosting and administration require explicit orbit-admins membership; there is no subject-ID or shared-admin override. Granting this group does not grant Authentik administration.
 
-Imperium saves verified user subjects in server sessions and derives game ownership from the `(issuer, subject)` pair. Accounts have separate libraries across identities; no email/username-based ownership migration occurs. Existing browser-owned games can be linked from the original browser with **Link this browser's games**. Existing game data remains in Imperium's original `ti4-turn-tracker_game_data` volume.
+Orbit saves verified user subjects in server sessions and derives game ownership from the `(issuer, subject)` pair. Accounts have separate libraries across identities; no email/username-based ownership migration occurs. Existing browser-owned games can be linked from the original browser with **Link this browser's games**. Existing game data remains in Orbit's original `ti4-turn-tracker_game_data` volume.
 
 ```sh
 docker compose exec -T server ak shell < scripts/configure-imperium.py
@@ -129,7 +159,15 @@ docker compose exec -T -e DECANID_TEST_RECIPIENT=<your-address> worker ak shell 
 
 Both the initial SMTP test and the updated branded decanID test were confirmed **delivered** by Resend and recorded as `email_sent` by Authentik. The native test command reported a result-handling error despite delivery; check the worker's event log and Resend delivery status before resending. The branded test helper queues the normal email task without waiting on that result-handling path.
 
-SMTP configuration alone does not enable every email flow. Enrollment verification is explicitly configured here; a separate account recovery flow has not been configured.
+SMTP configuration alone does not enable every email flow. Enrollment verification and account recovery are configured separately.
+
+### Password recovery
+
+The default authentication screen includes **Forgot password?**. Users can identify their account by username or email, receive a one-time reset link at the account email address, and choose a new password. Links expire after 30 minutes and are limited to five requests per ten minutes. Recovery uses the same 8-character password policy as enrollment and does not activate inactive accounts. To configure or reapply the flow:
+
+```sh
+docker compose exec -T server ak shell < scripts/configure-password-recovery.py
+```
 
 ## Login and email branding
 
@@ -167,7 +205,7 @@ For upgrades, back up first, review Authentik's release notes and official Compo
 
 ## Verification
 
-The Imperium migration passed its application test suite and production build. Browser checks cover sign-in/admin controls at 1440, 768, and 390 pixels; live tests exercised OIDC login, application administrator claims, token refresh, local logout, and the Authentik end-session endpoint. Public ingress routes passed trusted HTTPS checks.
+The Orbit migration passed its application test suite and production build. Browser checks cover sign-in/admin controls at 1440, 768, and 390 pixels; live tests exercised OIDC login, application administrator claims, token refresh, local logout, and the Authentik end-session endpoint. Public ingress routes passed trusted HTTPS checks.
 
 ```sh
 python3 ../decan-cloud-nginx/scripts/check-routes.py --trusted
@@ -177,14 +215,26 @@ npm run build
 BASE_URL=http://127.0.0.1:5173 node tests/auth-browser.mjs
 ```
 
-Registration should reject short passwords, keep accounts inactive until the email link is followed, record `email_verified`, return Imperium signups through its OIDC callback, and leave new users without administrator privileges. Use a separate test account and remove only that account after verification; do not repurpose an operator account.
+Registration should reject short passwords, keep accounts inactive until the email link is followed, record `email_verified`, return Orbit signups through its OIDC callback, and leave new users without administrator privileges. Use a separate test account and remove only that account after verification; do not repurpose an operator account.
 
-The live enrollment check passed email verification, ordinary-user authorization, and the Imperium callback; its temporary test account was removed afterward. The updated branded Gmail test was confirmed delivered.
+The live enrollment check passed email verification, ordinary-user authorization, and the Orbit callback; its temporary test account was removed afterward. The updated branded Gmail test was confirmed delivered.
 
 ### Session and portal regression checks
 
-Self-registered decanID accounts use Authentik's ordinary `internal` user type so they can open the application dashboard and personal settings. This does not assign superuser rights, administrative roles, or the `imperium-admin` group. Accounts created by the earlier external-user enrollment configuration are repaired in place by `scripts/configure-enrollment.py`.
+Self-registered decanID accounts use Authentik's ordinary `internal` user type so they can open the application dashboard and personal settings. This does not assign superuser rights, administrative roles, or the `orbit-admins` group. Accounts created by the earlier external-user enrollment configuration are repaired in place by `scripts/configure-enrollment.py`.
 
-Imperium's logout clears the local application session and the Authentik SSO session. This permits a subsequent **Create decanID** action; enrollment intentionally still requires an unauthenticated session. A signed-in user who opens an enrollment URL directly should sign out first.
+Orbit's logout clears the local application session and the Authentik SSO session. This permits a subsequent **Create decanID** action; enrollment intentionally still requires an unauthenticated session. A signed-in user who opens an enrollment URL directly should sign out first.
 
-`../imperium/tests/sso-session-browser.mjs` checks portal access, denied administrator APIs, full SSO logout, and registration after logout. Supply a dedicated regular test account through `SSO_TEST_USERNAME` and `SSO_TEST_PASSWORD` in the environment, then run the script from the Imperium directory. It does not create users or games. A live run passed all checks; its separately provisioned temporary test account was removed.
+`../imperium/tests/sso-session-browser.mjs` checks portal access, denied administrator APIs, full SSO logout, and registration after logout. Supply a dedicated regular test account through `SSO_TEST_USERNAME` and `SSO_TEST_PASSWORD` in the environment, then run the script from the Orbit directory. It does not create users or games. A live run passed all checks; its separately provisioned temporary test account was removed.
+
+
+## Orbit hostname migration
+
+The existing application/provider are now displayed as Orbit and launch
+https://orbit.decaneva.cloud/. Strict callback/logout URLs exist for Orbit and
+the legacy imperium.decaneva.cloud hostname. The application slug/client ID,
+issuer and groups retain their original identifiers to preserve game ownership
+and memberships. The sibling app checkout remains named imperium, with its
+GitHub remote now rdecaneva/orbit. Reprovisioning keeps both callback origins.
+
+The player-access group is orbit-users. It was renamed in place from imperium-users, retaining members and bindings; verified enrollment and provisioning use orbit-users.
