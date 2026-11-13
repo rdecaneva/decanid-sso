@@ -81,6 +81,7 @@ ak-brand-links:has(ul[data-count="1"]) { display: none; }
   outline-offset: 3px;
   border-color: #28533b;
 }
+.pf-c-form-control[aria-invalid="true"] { background-repeat: no-repeat !important; }
 .pf-c-button.pf-m-primary {
   min-height: 50px;
   padding: 12px 20px;
