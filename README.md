@@ -76,13 +76,17 @@ Existing operators can use their own administrator account. The original bootstr
 
 ### Shared and application groups
 
-Manage membership in **Directory → Groups** in Authentik. Only Orbit is currently connected to decanID; apps using local accounts need an OIDC integration before these groups apply there.
+Manage membership in **Directory → Groups** in Authentik. Orbit and the MTG dev site use decanID. MTG production still uses its local account system.
 
 | Group | Permission |
 | --- | --- |
 | `decanid-admins` | Shared administration for apps that recognize it; no Orbit privileges |
 | `orbit-admins` | Orbit administration and game hosting |
 | `orbit-users` | General Orbit access, without administration |
+| `mtg-dev-admin` | MTG dev administration |
+| `mtg-dev-user` | General MTG dev access, without administration |
+| `mtg-tabletop-admins` | MTG dev administration |
+| `mtg-tabletop-users` | General MTG dev access, without administration |
 | `decanid-users` | General decanID enrollment membership; does not independently grant app access |
 
 These groups do not grant Authentik administration. Only orbit-admins grants Orbit administration and game hosting. General access is granted by orbit-users; verified enrollment adds that group. The shared decanid-admins group grants no Orbit access or administration by itself. The old imperium-admins group was renamed in place, imperium-admin was removed, and decan0505 was explicitly added to orbit-admins. Subsequent provisioning preserves manual memberships. Existing games remain editable by their hosts after hosting permission is removed.
@@ -101,6 +105,13 @@ The script backs up affected groups, memberships, bindings, mapping names, and t
 For another already-integrated OIDC app, run with `-e DECANID_APP_SLUG=<app-slug>`. This creates `<app-slug>-admin` and `<app-slug>-user`, binds those alongside `decanid-admins`, and attaches the shared mapping. Configure that app to recognize `decanid-admins` or `<app-slug>-admin` as its administrator role; assign general users explicitly. Only Orbit receives the initial membership migration and automatic verified-signup access.
 
 Membership changes take effect in newly issued tokens. Orbit access tokens last five minutes; sign in again to apply changes immediately. Removing an access group does not synchronously revoke already-issued application sessions. App administration here covers SSO settings, not access to another person's game library.
+
+MTG dev uses the public client `mtg-dev`, issuer `https://sso.decaneva.cloud/application/o/mtg-dev/`, callback
+`https://mtg-dev.decaneva.cloud/auth/callback`, and post-logout redirect `https://mtg-dev.decaneva.cloud/`.
+Its approved existing users were provisioned from MTG's isolated dev roster with unusable initial passwords;
+they set decanID passwords through the recovery flow. The subject map is linked to existing MTG user IDs, so
+decks, games and settings remain attached to the same MTG accounts. The step-by-step procedure is in
+[`../mtg-tabletop/docs/authentik-dev.md`](../mtg-tabletop/docs/authentik-dev.md).
 
 ### Provider configuration
 
